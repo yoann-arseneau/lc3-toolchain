@@ -1,7 +1,10 @@
 #include "lc3asm.h"
+#include "lc3opt.h"
 #include "lc3lex.h"
 #include "lc3tok.h"
 #include "lc3cu.h"
+
+VerbosityLevel g_verbosity;
 
 typedef struct Token {
 	TokenType type;
@@ -22,37 +25,28 @@ typedef struct Line {
 void assemble(FILE *input, FILE *output);
 
 int main(int argc, char *argv[]) {
-	FILE *input, *output;
-	if (argc < 2) {
-		input = stdin;
-	}
-	else if (argc == 2) {
-		if (0 == strcmp(argv[1], "-")) {
-			input = stdin;
-		}
-		else {
-			input = fopen(argv[1], "r");
-			if (!input) {
-				fputs("bad input file\n", stderr);
-				exit(FAILURE_ARGS);
-			}
-		}
-	}
-	else {
-		fputs("expecting zero or one argument\n", stderr);
-		exit(FAILURE_ARGS);
+	FILE *input;
+	FILE *output;
+	{
+		AsmOpt opt;
+		asm_opt(argc, argv, &opt);
+		input = opt.input;
+		output = opt.output;
+		g_verbosity = opt.verbosity;
 	}
 
-	output = stdout;
-
+	LOGF_TRACE("assemble start\n");
 	assemble(input, output);
+	LOGF_TRACE("assemble complete\n");
 
+	LOGF_TRACE("cleanup\n");
 	if (input != stdin) {
 		fclose(input);
 	}
 	if (output != stdout) {
 		fclose(output);
 	}
+	LOGF_TRACE("exit normal\n");
 }
 
 int readline(FILE *file, char *buffer, size_t capacity);
@@ -69,48 +63,73 @@ void assemble(FILE *input, FILE *output) {
 	Token* line_tokens = malloc(MAX_LINE_TOKENS * sizeof(Token));
 	size_t line_number = 0;
 
+	if (!line_chars || !line_tokens) {
+		fputs("ran out of memory!\n", stderr);
+		exit(FAILURE_MEMORY);
+	}
+
 	CompilationUnit CU = {0};
 
+	LOGF_TRACE("file read\n");
 	while (!feof(input)) {
+		LOGF_TRACE("line read\n");
 		readline(input, line_chars, MAX_LINE_CHARS);
+		if (ferror(input)) {
+			fputs("error while reading file", stderr);
+			exit(FAILURE_IO);
+		}
 		line_number += 1;
 		char *cursor = line_chars;
 		size_t nTokens = 0;
+		LOGF_TRACE("line parse\n");
 		while (true) {
 			char *lexeme = next_lexeme(&cursor);
 			if (lexeme == NULL) {
-				fprintf(
-					stderr,
-					"syntax error at offset %u:\n%s\n%*c\n",
-					(unsigned)(cursor - line_chars),
-					line_chars,
-					(signed)(cursor - line_chars + 1),
-					'^');
-				break;
+				lexeme = cursor; // lexeme is used to locate error in syntax_error
+				goto syntax_error;
 			}
 			else if (lexeme == cursor) {
+				// line is complete
 				break;
 			}
 			else {
 				Token *token = &line_tokens[nTokens++];
 				token->type = parse(lexeme, cursor - lexeme, &token->data);
+				if (token->type == TT_Invalid) {
+					goto syntax_error;
+				}
 			}
 
 			if (nTokens > MAX_LINE_TOKENS) {
 				fprintf(stderr, "too many tokens on line %zu\n", line_number);
 				exit(FAILURE_LIMITS);
 			}
+			continue;
+
+		syntax_error:
+			fprintf(
+				stderr,
+				"syntax error at offset %u:\n%s\n%*c\n",
+				(unsigned)(lexeme - line_chars),
+				line_chars,
+				(signed)(lexeme - line_chars + 1),
+				'^');
+			exit(FAILURE_SYNTAX);
 		}
+		LOGF_TRACE("line process\n");
 		process_line(&CU, line_number, line_tokens, nTokens);
+		LOGF_TRACE("line cleanup\n");
 		for (size_t i = 0; i < nTokens; ++i) {
 			free_token(&line_tokens[i]);
 		}
 	}
 
+	LOGF_TRACE("file cleanup\n");
 	free(line_chars);
 	free(line_tokens);
 
 	if (CU.origin_set) {
+		LOGF_TRACE("obj produce\n");
 		cu_produce_obj(&CU, output);
 		exit(EXIT_SUCCESS);
 	}
@@ -133,6 +152,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 
 	// ignore empty lines
 	if (nTokens == 0) {
+		LOGF_TRACE("line empty\n");
 		return;
 	}
 
@@ -142,6 +162,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 		nTokens -= 1;
 	}
 	if (nTokens == 0) {
+		LOGF_TRACE("line empty\n");
 		return;
 	}
 
@@ -162,6 +183,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 	nTokens -= 1;
 
 	// handle arguments
+	LOGF_TRACE("arguments\n");
 	if (nTokens > 0) {
 		if (tokens[nTokens - 1].type == TT_Comma) {
 			fputs("dangling comma\n", stderr);
@@ -215,6 +237,7 @@ static int try_imm(Argument *arg, size_t bits, bool errorOnTooLarge);
 static bool validate_imm(long number, size_t nBits);
 void emit_preamble(CompilationUnit *CU, size_t alignment, Token *label);
 void process_instruction(CompilationUnit *CU, Line *line) {
+	LOGF_TRACE("instruction\n");
 	Token *instruction = line->statement;
 	Argument *args = line->args;
 	size_t nArgs = line->nArgs;

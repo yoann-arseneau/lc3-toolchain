@@ -286,7 +286,7 @@ void cu_produce_obj(CompilationUnit *CU, FILE *output) {
 	write_byte(output, 1);
 	write_word(output, CU->origin);
 	write_dword(output, HEADER_SIZE);
-	write_word(output, data_size);
+	write_word(output, CU->buffer_offset);
 	write_dword(output, 0);
 	write_dword(output, 0);
 	write_dword(output, 0);

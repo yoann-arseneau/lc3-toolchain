@@ -19,5 +19,25 @@ enum {
 	FAILURE_LINKING = 8,
 };
 
+typedef enum VerbosityLevel {
+	VL_Quiet = 1,
+	VL_Brief,
+	VL_Verbose,
+	VL_Debug,
+	VL_Trace,
+} VerbosityLevel;
+
+extern VerbosityLevel g_verbosity;
+
+#define LOGF(level, ...) do {\
+	if (g_verbosity >= (level)) {\
+		fprintf(stderr, __VA_ARGS__);\
+	}\
+} while (false)
+#define LOGF_BRIEF(...) LOGF(VL_Brief, __VA_ARGS__)
+#define LOGF_VERBOSE(...) LOGF(VL_Verbose, __VA_ARGS__)
+#define LOGF_DEBUG(...) LOGF(VL_Debug, __VA_ARGS__)
+#define LOGF_TRACE(...) LOGF(VL_Trace, __VA_ARGS__)
+
 #endif//__LC3ASM_H__
 
