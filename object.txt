@@ -1,0 +1,33 @@
+[Format]
+ASCII: "LC3OBJ"       ; tag
+u8:Major              ; major version; each major version must be individually supported
+u8:Minor              ; minor version; minor versions are all forward compatible within the same major version
+u16:Origin            ; the offset of the data chunk
+u32:ObjectOffset      ; file offset in bytes where the object code starts
+u16:ObjectSize        ; size in words for the object code; 0 => means until x10000 words or until EOF
+u32:SymbolTableOffset ; file offset in bytes where the symbol table starts
+u32:SymbolTableSize   ; size in bytes for the symbol table
+u32:LinkTableOffset   ; file offset in bytes where the link table starts
+u32:LinkTableSize     ; size in bytes for the link table
+?:Payloads            ; meaning of any extra data is as defined in the header
+
+[Payloads.Object]
+u16[]:ObjectCode
+
+[Payloads.SymbolTable]
+SymbolTableEntry[]:Entries ; size must match SymbolTableSize exactly
+
+[Payloads.LinkTable]
+LinkTableEntry[]:Entries ; size must match LinkTableSize exactly
+
+[SymbolTableEntry]
+u16:Target        ; target for the label
+u8:Length         ; size in bytes of the name
+blob[Length]:Name ; name of the label; should not have any duplicates
+
+[LinkTableEntry]
+u16:Address       ; address of the late-linked object code; should not have any duplicates
+u8:Type           ; the type of linking required (see src/lc3cu.h)
+u8:Length         ; size in bytes of the name
+blob[Length]:Name ; name of the targeted label
+
