@@ -35,18 +35,18 @@ int main(int argc, char *argv[]) {
 		g_verbosity = opt.verbosity;
 	}
 
-	LOGF_TRACE("assemble start\n");
+	LOGF_TRACE("assemble start");
 	assemble(input, output);
-	LOGF_TRACE("assemble complete\n");
+	LOGF_TRACE("assemble complete");
 
-	LOGF_TRACE("cleanup\n");
+	LOGF_TRACE("cleanup");
 	if (input != stdin) {
 		fclose(input);
 	}
 	if (output != stdout) {
 		fclose(output);
 	}
-	LOGF_TRACE("exit normal\n");
+	LOGF_TRACE("exit normal");
 }
 
 int readline(FILE *file, char *buffer, size_t capacity);
@@ -70,9 +70,9 @@ void assemble(FILE *input, FILE *output) {
 
 	CompilationUnit CU = {0};
 
-	LOGF_TRACE("file read\n");
+	LOGF_TRACE("file read");
 	while (!feof(input)) {
-		LOGF_TRACE("line read\n");
+		LOGF_TRACE("line read");
 		readline(input, line_chars, MAX_LINE_CHARS);
 		if (ferror(input)) {
 			fputs("error while reading file", stderr);
@@ -81,7 +81,7 @@ void assemble(FILE *input, FILE *output) {
 		line_number += 1;
 		char *cursor = line_chars;
 		size_t nTokens = 0;
-		LOGF_TRACE("line parse\n");
+		LOGF_TRACE("line parse");
 		while (true) {
 			char *lexeme = next_lexeme(&cursor);
 			if (lexeme == NULL) {
@@ -116,20 +116,20 @@ void assemble(FILE *input, FILE *output) {
 				'^');
 			exit(FAILURE_SYNTAX);
 		}
-		LOGF_TRACE("line process\n");
+		LOGF_TRACE("line process");
 		process_line(&CU, line_number, line_tokens, nTokens);
-		LOGF_TRACE("line cleanup\n");
+		LOGF_TRACE("line cleanup");
 		for (size_t i = 0; i < nTokens; ++i) {
 			free_token(&line_tokens[i]);
 		}
 	}
 
-	LOGF_TRACE("file cleanup\n");
+	LOGF_TRACE("file cleanup");
 	free(line_chars);
 	free(line_tokens);
 
 	if (CU.origin_set) {
-		LOGF_TRACE("obj produce\n");
+		LOGF_TRACE("obj produce");
 		cu_produce_obj(&CU, output);
 		exit(EXIT_SUCCESS);
 	}
@@ -143,6 +143,8 @@ void process_instruction(CompilationUnit *CU, Line *line);
 void process_word_literal(CompilationUnit *CU, Line *line);
 void process_directive(CompilationUnit *CU, Line *line);
 void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t nTokens) {
+	LOGF_TRACE("process line %zu (tokens: %p; nTokens: %zu)", line_number, (void*)tokens, nTokens);
+
 	enum {
 		MAX_ARGUMENTS = 5,
 	};
@@ -152,7 +154,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 
 	// ignore empty lines
 	if (nTokens == 0) {
-		LOGF_TRACE("line empty\n");
+		LOGF_TRACE("line empty");
 		return;
 	}
 
@@ -162,7 +164,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 		nTokens -= 1;
 	}
 	if (nTokens == 0) {
-		LOGF_TRACE("line empty\n");
+		LOGF_TRACE("line empty");
 		return;
 	}
 
@@ -183,7 +185,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 	nTokens -= 1;
 
 	// handle arguments
-	LOGF_TRACE("arguments\n");
+	LOGF_TRACE("arguments");
 	if (nTokens > 0) {
 		if (tokens[nTokens - 1].type == TT_Comma) {
 			fputs("dangling comma\n", stderr);
@@ -237,7 +239,7 @@ static int try_imm(Argument *arg, size_t bits, bool errorOnTooLarge);
 static bool validate_imm(long number, size_t nBits);
 void emit_preamble(CompilationUnit *CU, size_t alignment, Token *label);
 void process_instruction(CompilationUnit *CU, Line *line) {
-	LOGF_TRACE("instruction\n");
+	LOGF_TRACE("instruction");
 	Token *instruction = line->statement;
 	Argument *args = line->args;
 	size_t nArgs = line->nArgs;
@@ -390,10 +392,13 @@ static bool validate_imm(long number, size_t nBits) {
 	return !(number & mask && ~number & mask);
 }
 void process_word_literal(CompilationUnit *CU, Line *line) {
+	LOGF_TRACE("word literal");
 	emit_preamble(CU, 1, line->label);
 	cu_emit_word(CU, line->statement->data.word);
 }
 void process_directive(CompilationUnit *CU, Line *line) {
+	LOGF_TRACE("directive");
+
 	Token *directive = line->statement;
 	Argument *args = line->args;
 	size_t nArgs = line->nArgs;
@@ -404,6 +409,7 @@ void process_directive(CompilationUnit *CU, Line *line) {
 	}
 	switch (directive->data.directive_type) {
 		case DT_Origin: {
+			LOGF_TRACE(".origin");
 			if (label) {
 				fputs("origin cannot have a label\n", stderr);
 				exit(FAILURE_SYNTAX);
@@ -416,6 +422,7 @@ void process_directive(CompilationUnit *CU, Line *line) {
 			break;
 		}
 		case DT_StringZ: {
+			LOGF_TRACE(".stringz");
 			if (nArgs != 1) {
 				fputs(".stringz expects exactly one argument\n", stderr);
 				exit(FAILURE_SYNTAX);

@@ -90,6 +90,7 @@ void cu_emit_words(CompilationUnit *CU, const uint16_t *words, size_t size) {
 		exit(FAILURE_INTERNAL);
 	}
 
+	ensure_capacity(CU, size);
 	while (size-- > 0) {
 		CU->buffer[CU->buffer_offset++] = *words++;
 	}
@@ -100,6 +101,7 @@ void cu_emit_bytes(CompilationUnit *CU, const uint8_t *bytes, size_t size) {
 		exit(FAILURE_INTERNAL);
 	}
 
+	ensure_capacity(CU, size);
 	while (size-- > 0) {
 		CU->buffer[CU->buffer_offset++] = *bytes++;
 	}
@@ -110,6 +112,7 @@ void cu_emit_padding(CompilationUnit *CU, uint16_t word, size_t size) {
 		exit(FAILURE_INTERNAL);
 	}
 
+	ensure_capacity(CU, size);
 	pad(CU, word, size);
 }
 

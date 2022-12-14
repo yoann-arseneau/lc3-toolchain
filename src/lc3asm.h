@@ -21,23 +21,28 @@ enum {
 
 typedef enum VerbosityLevel {
 	VL_Quiet = 1,
-	VL_Brief,
-	VL_Verbose,
+	VL_Error,
+	VL_Warn,
+	VL_Info,
 	VL_Debug,
 	VL_Trace,
+	VL_CountPlusOne,
 } VerbosityLevel;
 
 extern VerbosityLevel g_verbosity;
 
-#define LOGF(level, ...) do {\
+#define LOGF(level, label, ...) do {\
 	if (g_verbosity >= (level)) {\
+		fprintf(stderr, "%5s %s(%u) ", label, __FILE__, __LINE__);\
 		fprintf(stderr, __VA_ARGS__);\
+		fputc('\n', stderr);\
 	}\
 } while (false)
-#define LOGF_BRIEF(...) LOGF(VL_Brief, __VA_ARGS__)
-#define LOGF_VERBOSE(...) LOGF(VL_Verbose, __VA_ARGS__)
-#define LOGF_DEBUG(...) LOGF(VL_Debug, __VA_ARGS__)
-#define LOGF_TRACE(...) LOGF(VL_Trace, __VA_ARGS__)
+#define LOGF_ERROR(...) LOGF(VL_Error, "ERROR", __VA_ARGS__)
+#define LOGF_WARN(...) LOGF(VL_Warn, "WARN", __VA_ARGS__)
+#define LOGF_INFO(...) LOGF(VL_Info, "INFO", __VA_ARGS__)
+#define LOGF_DEBUG(...) LOGF(VL_Debug, "DEBUG", __VA_ARGS__)
+#define LOGF_TRACE(...) LOGF(VL_Trace, "TRACE", __VA_ARGS__)
 
 #endif//__LC3ASM_H__
 
