@@ -51,8 +51,6 @@ TokenType parse(const char *lexeme, size_t length, TokenData *tokenData) {
 				return metaCursor->type;
 			}
 		}
-		tokenData->dataType = TDT_StringSlice;
-		tokenData->string_slice = (StringSlice){ lexeme, length };
 		if (length >= 2 && lexeme[0] == 'x') {
 			for (size_t i = 1; i < length; ++i) {
 				c = lexeme[i];
@@ -60,8 +58,12 @@ TokenType parse(const char *lexeme, size_t length, TokenData *tokenData) {
 					return TT_Identifier;
 				}
 			}
+			tokenData->dataType = TDT_StringSlice;
+			tokenData->string_slice = (StringSlice){ lexeme + 1, length - 1 };
 			return TT_HexIdentifier;
 		}
+		tokenData->dataType = TDT_StringSlice;
+		tokenData->string_slice = (StringSlice){ lexeme, length };
 		return TT_Identifier;
 	}
 	else if (c == ',') {

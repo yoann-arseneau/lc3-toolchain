@@ -2,6 +2,7 @@
 #define __LC3ASM_H__
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,7 +34,7 @@ extern VerbosityLevel g_verbosity;
 
 #define LOGF(level, label, ...) do {\
 	if (g_verbosity >= (level)) {\
-		fprintf(stderr, "%5s %s(%u) ", label, __FILE__, __LINE__);\
+		fprintf(stderr, "%-5s %s(%u) ", label, __FILE__, __LINE__);\
 		fprintf(stderr, __VA_ARGS__);\
 		fputc('\n', stderr);\
 	}\

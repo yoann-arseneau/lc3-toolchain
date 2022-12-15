@@ -23,22 +23,37 @@ void asm_opt(int argc, char *argv[], AsmOpt *opt) {
 			break;
 		}
 
-		size_t position;
-		union {
-			size_t size;
-		} data;
-
-		if (sscanf(arg, "-v%zu%zn", &data.size, &position) == 1 && arg[position] == 0) {
-			size_t level = data.size;
-			if (level >= VL_CountPlusOne) {
-				fprintf(stderr, "bad versobity level %zu\n", level);
-				exit(FAILURE_ARGS);
-			}
-			opt->verbosity = (VerbosityLevel)(level + 1);
+		if (arg[1] == 0) {
+			// not a valid argument; could be a filename?
+			break;
+		}
+		else if (arg[1] == '-') {
+			// long-form argument can be `--option` or `--option=value`
+			fprintf(stderr, "long-form argument not implemented (%s)\n", arg);
+			exit(FAILURE_NOTIMPLEMENTED);
 		}
 		else {
-			fprintf(stderr, "unrecognized argument '%s'\n", arg);
-			exit(FAILURE_ARGS);
+			switch (arg[1]) {
+				case 'v': {
+					char c = arg[2];
+					if (c == 0) {
+						c = '3';
+					}
+					else if (arg[3] != 0 || c < '0' || c > '0' + VL_CountPlusOne - 2) {
+						fprintf(
+							stderr,
+							"option -v accepts no value or value in range [0 .. %u]; got (%s)\n",
+							VL_CountPlusOne - 2,
+							arg);
+						exit(FAILURE_ARGS);
+					}
+					opt->verbosity = (VerbosityLevel)(c - '0' + 1);
+					break;
+				default:
+					fprintf(stderr, "unrecognized argument '%s'\n", arg);
+					exit(FAILURE_ARGS);
+				}
+			}
 		}
 	}
 	for (; i < argc; ++i) {

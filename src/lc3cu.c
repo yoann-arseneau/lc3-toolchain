@@ -118,6 +118,7 @@ void cu_emit_padding(CompilationUnit *CU, uint16_t word, size_t size) {
 
 // Linking
 void cu_register_label(CompilationUnit *CU, const char *name, size_t length, uint16_t target) {
+	LOGF_INFO("register label %.*s = x%04X", (int)length, name, target);
 	if (length < 1) {
 		fputs("cu_register_label: length < 1", stderr);
 		exit(FAILURE_INTERNAL);
@@ -159,6 +160,8 @@ bool cu_label_get_target(CompilationUnit *CU, const char *name, size_t length, u
 	return false;
 }
 void cu_late_link(CompilationUnit *CU, uint16_t address, LateLinkingType type, const char *name, size_t length) {
+	LOGF_TRACE("late link x%04x to label %.*s (%u)", address, (int)length, name, type);
+
 	if (length < 1) {
 		fputs("cu_register_label: length < 1", stderr);
 		exit(FAILURE_INTERNAL);
@@ -211,6 +214,14 @@ bool cu_resolve_linking(CompilationUnit *CU) {
 		}
 		uint16_t target;
 		if (cu_label_get_target(CU, current->name, current->length, &target)) {
+			// patch
+			LOGF_TRACE(
+				"patch x%04X with x%04X(%.*s) (%i)",
+				address,
+				target,
+				(int)current->length,
+				current->name,
+				current->type);
 			uint16_t word = CU->buffer[index];
 			switch (current->type) {
 				case LLT_AbsoluteWord:
@@ -241,6 +252,12 @@ bool cu_resolve_linking(CompilationUnit *CU) {
 		}
 		else {
 			// move to next
+			LOGF_TRACE(
+				"unable to resolve %.*s for x%04x (%i)",
+				(int)current->length,
+				current->name,
+				address,
+				current->type);
 			cursor = &current->next;
 		}
 	}
@@ -272,6 +289,7 @@ static void write_string(FILE *output, const char *string, size_t length) {
 }
 
 void cu_produce_obj(CompilationUnit *CU, FILE *output) {
+	LOGF_INFO("produce obj");
 	enum {
 		TABLEMETA_OFFSET = 16,
 		HEADER_SIZE = 32,
@@ -282,6 +300,8 @@ void cu_produce_obj(CompilationUnit *CU, FILE *output) {
 	uint32_t data_size = CU->buffer_offset * 2;
 	uint32_t label_size = 0;
 	uint32_t linking_size = 0;
+
+	LOGF_INFO("writing object to output");
 
 	// write header
 	write_string(output, "LC3OBJ", 6);

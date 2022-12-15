@@ -129,7 +129,6 @@ void assemble(FILE *input, FILE *output) {
 	free(line_tokens);
 
 	if (CU.origin_set) {
-		LOGF_TRACE("obj produce");
 		cu_produce_obj(&CU, output);
 		exit(EXIT_SUCCESS);
 	}
@@ -387,6 +386,38 @@ static int try_imm(Argument *arg, size_t nBits, bool errorOnTooLarge) {
 	}
 	return number & ~mask;
 }
+static bool try_int(Argument *arg, long *result) {
+	if (arg->count == 0) {
+		return false;
+	}
+	if (arg->count > 1) {
+		fputs("multiple token arg\n", stderr);
+		exit(FAILURE_NOTIMPLEMENTED);
+	}
+	Token *token = &arg->tokens[0];
+	switch (token->type) {
+		case TT_Number:
+			if (token->data.dataType != TDT_Integer) {
+				fprintf(stderr, "unexpected number data type (%u)", token->data.dataType);
+				exit(FAILURE_INTERNAL);
+			}
+			*result = token->data.integer;
+			return true;
+		case TT_HexIdentifier: {
+			StringSlice string = tokendata_expect_string(&token->data);
+			char *end;
+			unsigned long value = strtoul(string.start, &end, 16);
+			if (end != string.start + string.length || value >= 0x7FFFFFFF) {
+				fputs("bad hex integer", stderr);
+				exit(FAILURE_SYNTAX);
+			}
+			*result = (long)value;
+			return true;
+		}
+		default:
+			return false;
+	}
+}
 static bool validate_imm(long number, size_t nBits) {
 	unsigned long mask = ~0ul << nBits;
 	return !(number & mask && ~number & mask);
@@ -411,12 +442,26 @@ void process_directive(CompilationUnit *CU, Line *line) {
 		case DT_Origin: {
 			LOGF_TRACE(".origin");
 			if (label) {
-				fputs("origin cannot have a label\n", stderr);
+				fputs(".origin cannot have a label\n", stderr);
 				exit(FAILURE_SYNTAX);
 			}
-			uint16_t origin = 0x3000; // FIXME hardcoded origin
+			if (nArgs != 1) {
+				fputs(".origin expects exactly one argument\n", stderr);
+				exit(FAILURE_SYNTAX);
+			}
+			Argument *arg = args;
+			long number;
+			if (!try_int(arg, &number)) {
+				fputs(".origin expects a number between [0 .. 0xFFFF]\n", stderr);
+				exit(FAILURE_SYNTAX);
+			}
+			if (number < 0 || number > 0xFFFF) {
+				fprintf(stderr, ".origin expects a number between between [0 .. 0xFFFF]; got %li\n", number);
+				exit(FAILURE_SYNTAX);
+			}
+			uint16_t origin = (uint16_t)number;
 			if (!cu_origin_set(CU, origin)) {
-				fputs("origin was already set\n", stderr);
+				fputs(".origin was already set\n", stderr);
 				exit(FAILURE_SYNTAX);
 			}
 			break;
