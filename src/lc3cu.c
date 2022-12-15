@@ -186,6 +186,8 @@ void cu_late_link(CompilationUnit *CU, uint16_t address, LateLinkingType type, c
 	*cursor = node;
 }
 bool cu_resolve_linking(CompilationUnit *CU) {
+	LOGF_TRACE("resolve linking");
+
 	LateLinkingNode **cursor = &CU->first_late_linking;
 	while (true) {
 		LateLinkingNode *current = *cursor;
@@ -261,7 +263,15 @@ bool cu_resolve_linking(CompilationUnit *CU) {
 			cursor = &current->next;
 		}
 	}
-	return cursor == &CU->first_late_linking;
+
+	if (cursor == &CU->first_late_linking) {
+		LOGF_TRACE("linking resolved");
+		return true;
+	}
+	else {
+		LOGF_TRACE("linking incomplete");
+		return false;
+	}
 }
 
 // Output
@@ -289,11 +299,11 @@ static void write_string(FILE *output, const char *string, size_t length) {
 }
 
 void cu_produce_obj(CompilationUnit *CU, FILE *output) {
-	LOGF_INFO("produce obj");
 	enum {
-		TABLEMETA_OFFSET = 16,
 		HEADER_SIZE = 32,
 	};
+
+	LOGF_INFO("produce obj");
 
 	cu_resolve_linking(CU);
 
@@ -301,29 +311,40 @@ void cu_produce_obj(CompilationUnit *CU, FILE *output) {
 	uint32_t label_size = 0;
 	uint32_t linking_size = 0;
 
-	LOGF_INFO("writing object to output");
+	// calculate sizes
+	LabelNode *label = CU->first_label;
+	while (label) {
+		label_size += 3 + label->length;
+		label = label->next;
+	}
+	LateLinkingNode *lateLinking = CU->first_late_linking;
+	while (lateLinking) {
+		linking_size += 4 + lateLinking->length;
+		lateLinking = lateLinking->next;
+	}
 
 	// write header
+	LOGF_TRACE("write header");
 	write_string(output, "LC3OBJ", 6);
 	write_byte(output, 0);
 	write_byte(output, 1);
 	write_word(output, CU->origin);
 	write_dword(output, HEADER_SIZE);
 	write_word(output, CU->buffer_offset);
-	write_dword(output, 0);
-	write_dword(output, 0);
-	write_dword(output, 0);
-	write_dword(output, 0);
+	write_dword(output, HEADER_SIZE + data_size);
+	write_dword(output, label_size);
+	write_dword(output, HEADER_SIZE + data_size + label_size);
+	write_dword(output, linking_size);
 
 	// write data
+	LOGF_TRACE("write object code");
 	for (size_t i = 0; i < CU->buffer_offset; ++i) {
-		uint16_t word = CU->buffer[i];
-		fputc(word >> 8, output);
-		fputc(word & 0xFF, output);
+		write_word(output, CU->buffer[i]);
 	}
 
 	// write label table
-	LabelNode *label = CU->first_label;
+	LOGF_TRACE("write label table");
+	label = CU->first_label;
 	while (label) {
 		write_word(output, label->target);
 		write_byte(output, label->length);
@@ -333,7 +354,8 @@ void cu_produce_obj(CompilationUnit *CU, FILE *output) {
 	}
 
 	// write linking table
-	LateLinkingNode *lateLinking = CU->first_late_linking;
+	LOGF_TRACE("write linking table");
+	lateLinking = CU->first_late_linking;
 	while (lateLinking) {
 		write_word(output, lateLinking->address);
 		write_byte(output, lateLinking->type);
@@ -343,12 +365,7 @@ void cu_produce_obj(CompilationUnit *CU, FILE *output) {
 		lateLinking = lateLinking->next;
 	}
 
-	// patch table metadata
-	fseek(output, TABLEMETA_OFFSET, SEEK_SET);
-	write_dword(output, HEADER_SIZE + data_size);
-	write_dword(output, label_size);
-	write_dword(output, HEADER_SIZE + data_size + label_size);
-	write_dword(output, linking_size);
+	LOGF_TRACE("write complete");
 }
 
 // Config
