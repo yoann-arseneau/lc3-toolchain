@@ -53,6 +53,7 @@ dkms.conf
 
 # VIM swap files
 .*.swp
+.swp
 
 # Ooutput directory
 /out/*
