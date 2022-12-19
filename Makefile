@@ -32,9 +32,8 @@ clean:
 	@echo Cleaned \'./$(OUT)\' and pre-compiled header files
 hello: $(OUT)/hello.obj
 	@hexdump -C $(OUT)/hello.obj
-link: $(OUT)/main.obj $(OUT)/data.obj
-	hexdump -C $(OUT)/main.obj
-	hexdump -C $(OUT)/data.obj
+link: $(OUT)/lc3link $(OUT)/main.obj $(OUT)/data.obj
+	$(OUT)/lc3link $^
 
 # LC3 Object Files
 $(OUT)/hello.obj: examples/hello/hello.asm $(OUT)/lc3asm
