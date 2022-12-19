@@ -1,5 +1,4 @@
 #include "lc3asm.h"
-#include "lc3lex.h"
 
 static int is_whitespace(char c) {
 	return c == ' ' || c == '\t';

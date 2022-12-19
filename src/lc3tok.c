@@ -1,5 +1,4 @@
 #include "lc3asm.h"
-#include "lc3tok.h"
 
 typedef struct IdentifierMeta {
 	const char *name;

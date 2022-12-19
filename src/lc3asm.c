@@ -1,10 +1,4 @@
 #include "lc3asm.h"
-#include "lc3opt.h"
-#include "lc3lex.h"
-#include "lc3tok.h"
-#include "lc3cu.h"
-
-VerbosityLevel g_verbosity;
 
 typedef struct Token {
 	TokenType type;
@@ -22,18 +16,14 @@ typedef struct Line {
 	Token *comment;
 } Line;
 
+void options(int argc, char *argv[], FILE **input, FILE **output);
 void assemble(FILE *input, FILE *output);
 
 int main(int argc, char *argv[]) {
-	FILE *input;
-	FILE *output;
-	{
-		AsmOpt opt;
-		asm_opt(argc, argv, &opt);
-		input = opt.input;
-		output = opt.output;
-		g_verbosity = opt.verbosity;
-	}
+	FILE *input = NULL;
+	FILE *output = NULL;
+
+	options(argc, argv, &input, &output);
 
 	LOGF_TRACE("assemble start");
 	assemble(input, output);
@@ -49,10 +39,92 @@ int main(int argc, char *argv[]) {
 	LOGF_TRACE("exit normal");
 }
 
+void options(int argc, char *argv[], FILE **input, FILE **output) {
+	if (argc < 1) {
+		fputs("no callee?!", stderr);
+		exit(FAILURE_INTERNAL);
+	}
+	VerbosityLevel verbosity = 0;
+
+	int i;
+	// process options
+	for (i = 1; i < argc; ++i) {
+		char *arg = argv[i];
+		if (strcmp(arg, "--") == 0) {
+			// argument '--' transitions to file name processing
+			i += 1;
+			break;
+		}
+		else if (arg[0] != '-') {
+			// argument not starting in '-' is a file name
+			break;
+		}
+
+		if (arg[1] == 0) {
+			// not a valid argument; could be a filename?
+			break;
+		}
+		else if (arg[1] == '-') {
+			// long-form argument can be `--option` or `--option=value`
+			fprintf(stderr, "long-form argument not implemented (%s)\n", arg);
+			exit(FAILURE_NOTIMPLEMENTED);
+		}
+		else {
+			switch (arg[1]) {
+				case 'v': {
+					char c = arg[2];
+					if (c == 0) {
+						c = '3';
+					}
+					else if (arg[3] != 0 || c < '0' || c > '0' + VL_CountPlusOne - 2) {
+						fprintf(
+							stderr,
+							"option -v accepts no value or value in range [0 .. %u]; got (%s)\n",
+							VL_CountPlusOne - 2,
+							arg);
+						exit(FAILURE_ARGS);
+					}
+					verbosity = (VerbosityLevel)(c - '0' + 1);
+					break;
+				default:
+					fprintf(stderr, "unrecognized argument '%s'\n", arg);
+					exit(FAILURE_ARGS);
+				}
+			}
+		}
+	}
+	// process filenames
+	for (; i < argc; ++i) {
+		char *arg = argv[i];
+		if (*input == NULL) {
+			FILE *fh = fopen(arg, "r");
+			if (!fh) {
+				fprintf(stderr, "could not open file \"%s\"\n", arg);
+				exit(FAILURE_ARGS);
+			}
+			*input = fh;
+		}
+		else {
+			fputs("multiple filenames not supported yet.\n", stderr);
+			exit(FAILURE_NOTIMPLEMENTED);
+		}
+	}
+
+	if (!*input) {
+		*input = stdin;
+	}
+	if (!*output) {
+		*output = stdout;
+	}
+	if (!verbosity) {
+		verbosity = VL_Warn;
+	}
+	log_config(verbosity, stderr);
+}
+
 int readline(FILE *file, char *buffer, size_t capacity);
 void free_token(Token *token);
 void process_line(CompilationUnit *CU, size_t line_number, Token *token, size_t nTokens);
-
 void assemble(FILE *input, FILE *output) {
 	enum {
 		MAX_LINE_CHARS = 4096,
@@ -70,6 +142,7 @@ void assemble(FILE *input, FILE *output) {
 
 	CompilationUnit CU = {0};
 
+	LOGF_INFO("assemble");
 	LOGF_TRACE("file read");
 	while (!feof(input)) {
 		LOGF_TRACE("line read");
@@ -129,6 +202,7 @@ void assemble(FILE *input, FILE *output) {
 	free(line_tokens);
 
 	if (CU.origin_set) {
+		LOGF_INFO("produce obj");
 		cu_produce_obj(&CU, output);
 		exit(EXIT_SUCCESS);
 	}

@@ -1,5 +1,4 @@
 #include "lc3asm.h"
-#include "lc3cu.h"
 
 typedef struct LabelNode {
 	char *name;
@@ -303,7 +302,7 @@ void cu_produce_obj(CompilationUnit *CU, FILE *output) {
 		HEADER_SIZE = 32,
 	};
 
-	LOGF_INFO("produce obj");
+	LOGF_TRACE("produce obj");
 
 	cu_resolve_linking(CU);
 

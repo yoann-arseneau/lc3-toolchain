@@ -45,22 +45,22 @@ $(OUT)/hello.obj $(OUT)/main.obj $(OUT)/data.obj:
 	$(OUT)/lc3asm $< >$@
 
 # Tool-Chain Artifacts
-$(OUT)/lc3asm: $(OUT)/lc3asm.o $(OUT)/lc3opt.o $(OUT)/lc3lex.o $(OUT)/lc3tok.o $(OUT)/lc3cu.o
+$(OUT)/lc3asm: $(OUT)/lc3asm.o $(OUT)/lc3log.o $(OUT)/lc3lex.o $(OUT)/lc3tok.o $(OUT)/lc3cu.o
 $(OUT)/lc3asm:
 	@mkdir -p $(OUT)
 	$(LNK) $^ -o $@
 
 # Tool-Chain Object Files
-$(OUT)/lc3asm.o: $(SRC)/lc3asm.c $(SRC)/lc3asm.h.gch $(SRC)/lc3opt.h $(SRC)/lc3lex.h $(SRC)/lc3tok.h $(SRC)/lc3cu.h
-$(OUT)/lc3opt.o: $(SRC)/lc3opt.c $(SRC)/lc3asm.h.gch $(SRC)/lc3opt.h
-$(OUT)/lc3lex.o: $(SRC)/lc3lex.c $(SRC)/lc3asm.h.gch $(SRC)/lc3lex.h
-$(OUT)/lc3tok.o: $(SRC)/lc3tok.c $(SRC)/lc3asm.h.gch $(SRC)/lc3tok.h
-$(OUT)/lc3cu.o: $(SRC)/lc3cu.c $(SRC)/lc3asm.h.gch $(SRC)/lc3cu.h
-$(OUT)/lc3asm.o $(OUT)/lc3link.o $(OUT)/lc3opt.o $(OUT)/lc3lex.o $(OUT)/lc3tok.o $(OUT)/lc3cu.o:
+$(OUT)/lc3asm.o: $(SRC)/lc3asm.c $(SRC)/lc3asm.h.gch
+$(OUT)/lc3log.o: $(SRC)/lc3log.c $(SRC)/lc3asm.h.gch
+$(OUT)/lc3lex.o: $(SRC)/lc3lex.c $(SRC)/lc3asm.h.gch
+$(OUT)/lc3tok.o: $(SRC)/lc3tok.c $(SRC)/lc3asm.h.gch
+$(OUT)/lc3cu.o:  $(SRC)/lc3cu.c $(SRC)/lc3asm.h.gch
+$(OUT)/lc3asm.o $(OUT)/lc3link.o $(OUT)/lc3log.o $(OUT)/lc3lex.o $(OUT)/lc3tok.o $(OUT)/lc3cu.o:
 	@mkdir -p $(OUT)
 	$(CC) $< -c -o $@
 
 # Pre-Compiled Header
-$(SRC)/lc3asm.h.gch: $(SRC)/lc3asm.h
+$(SRC)/lc3asm.h.gch: $(SRC)/lc3asm.h $(SRC)/lc3log.h $(SRC)/lc3lex.h $(SRC)/lc3tok.h $(SRC)/lc3cu.h
 	$(CC) $<
 
