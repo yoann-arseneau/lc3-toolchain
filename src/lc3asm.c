@@ -1,4 +1,9 @@
 #include "lc3asm.h"
+typedef struct Options {
+	FILE *input;
+	FILE *output;
+	VerbosityLevel verbosity;
+} Options;
 
 typedef struct Token {
 	TokenType type;
@@ -16,35 +21,44 @@ typedef struct Line {
 	Token *comment;
 } Line;
 
-void options(int argc, char *argv[], FILE **input, FILE **output);
+void parse_options(int argc, char *argv[], Options *options);
 void assemble(FILE *input, FILE *output);
 
 int main(int argc, char *argv[]) {
-	FILE *input = NULL;
-	FILE *output = NULL;
+	log_init();
 
-	options(argc, argv, &input, &output);
+	Options options;
+	parse_options(argc, argv, &options);
+
+	if (!options.input) {
+		options.input = stdin;
+	}
+	if (!options.output) {
+		options.output = stdout;
+	}
+	if (options.verbosity) {
+		log_config(options.verbosity, stderr);
+	}
 
 	LOGF_TRACE("assemble start");
-	assemble(input, output);
+	assemble(options.input, options.output);
 	LOGF_TRACE("assemble complete");
 
 	LOGF_TRACE("cleanup");
-	if (input != stdin) {
-		fclose(input);
+	if (options.input != stdin) {
+		fclose(options.input);
 	}
-	if (output != stdout) {
-		fclose(output);
+	if (options.output != stdout) {
+		fclose(options.output);
 	}
 	LOGF_TRACE("exit normal");
 }
 
-void options(int argc, char *argv[], FILE **input, FILE **output) {
+void parse_options(int argc, char *argv[], Options *options) {
 	if (argc < 1) {
-		fputs("no callee?!", stderr);
-		exit(FAILURE_INTERNAL);
+		FAILF(FAILURE_INTERNAL, "no callee?!");
 	}
-	VerbosityLevel verbosity = 0;
+	memset(options, 0, sizeof(*options));
 
 	int i;
 	// process options
@@ -66,60 +80,48 @@ void options(int argc, char *argv[], FILE **input, FILE **output) {
 		}
 		else if (arg[1] == '-') {
 			// long-form argument can be `--option` or `--option=value`
-			fprintf(stderr, "long-form argument not implemented (%s)\n", arg);
-			exit(FAILURE_NOTIMPLEMENTED);
+			FAILF(FAILURE_NOTIMPLEMENTED, "long-form argument not implemented (%s)\n", arg);
 		}
 		else {
 			switch (arg[1]) {
 				case 'v': {
-					char c = arg[2];
-					if (c == 0) {
-						c = '3';
+					VerbosityLevel level;
+					if (!log_tryparse_verbosity(&arg[2], &level)) {
+						if (arg[2] == 0) {
+							level = VL_Info;
+						}
+						else {
+							FAILF(
+								FAILURE_ARGS,
+								"option -v accepts no value or value in range [0 .. %u]; got (%s)\n",
+								VL_CountPlusOne - 2,
+								arg);
+						}
 					}
-					else if (arg[3] != 0 || c < '0' || c > '0' + VL_CountPlusOne - 2) {
-						fprintf(
-							stderr,
-							"option -v accepts no value or value in range [0 .. %u]; got (%s)\n",
-							VL_CountPlusOne - 2,
-							arg);
-						exit(FAILURE_ARGS);
-					}
-					verbosity = (VerbosityLevel)(c - '0' + 1);
+					options->verbosity = level;
 					break;
-				default:
-					fprintf(stderr, "unrecognized argument '%s'\n", arg);
-					exit(FAILURE_ARGS);
 				}
+				default:
+					FAILF(FAILURE_ARGS, "unrecognized argument '%s'\n", arg);
 			}
 		}
 	}
 	// process filenames
 	for (; i < argc; ++i) {
 		char *arg = argv[i];
-		if (*input == NULL) {
+		if (options->input == NULL) {
 			FILE *fh = fopen(arg, "r");
 			if (!fh) {
 				fprintf(stderr, "could not open file \"%s\"\n", arg);
 				exit(FAILURE_ARGS);
 			}
-			*input = fh;
+			options->input = fh;
 		}
 		else {
 			fputs("multiple filenames not supported yet.\n", stderr);
 			exit(FAILURE_NOTIMPLEMENTED);
 		}
 	}
-
-	if (!*input) {
-		*input = stdin;
-	}
-	if (!*output) {
-		*output = stdout;
-	}
-	if (!verbosity) {
-		verbosity = VL_Warn;
-	}
-	log_config(verbosity, stderr);
 }
 
 int readline(FILE *file, char *buffer, size_t capacity);
