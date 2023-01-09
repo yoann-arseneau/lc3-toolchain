@@ -24,6 +24,8 @@ typedef struct StringSlice {
 typedef enum InstructionFormat {
 	IF_Arithmetic = 1,
 	IF_DestOffset,
+	IF_Offset9,
+	IF_BaseR,
 } InstructionFormat;
 typedef struct InstructionMeta {
 	InstructionFormat format;

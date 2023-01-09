@@ -309,6 +309,7 @@ void process_line(CompilationUnit *CU, size_t line_number, Token *tokens, size_t
 }
 static void expect_n_args(size_t expected, size_t actual);
 static int expect_reg(Argument *arg, const char *name);
+static long expect_off(CompilationUnit *CU, Argument *arg, size_t bits, const char *name);
 static int try_reg(Argument *arg);
 static int try_imm(Argument *arg, size_t bits, bool errorOnTooLarge);
 static bool validate_imm(long number, size_t nBits);
@@ -350,39 +351,21 @@ void process_instruction(CompilationUnit *CU, Line *line) {
 		case IF_DestOffset: {
 			expect_n_args(2, nArgs);
 			int dest = expect_reg(&args[0], "first");
-			long offset = try_imm(&args[1], 9, true);
-			if (offset < 0) {
-				if (args[1].count == 1 && args[1].tokens[0].type == TT_Identifier) {
-					StringSlice slice = tokendata_expect_string(&args[1].tokens[0].data);
-					uint16_t target;
-					if (cu_label_get_target(CU, slice.start, slice.length, &target)) {
-						offset = 1L + target - cu_cursor_get(CU);
-						if (!validate_imm(offset, 9)) {
-							fprintf(
-								stderr,
-								"offset for label %.*s (%li) does not fit in %u bits\n",
-								(unsigned)slice.length,
-								slice.start,
-								offset,
-								9);
-							exit(FAILURE_SYNTAX);
-						}
-					}
-					else {
-						cu_late_link(CU, cu_cursor_get(CU), LLT_OffsetPlusOneImm9, slice.start, slice.length);
-						offset = 0;
-					}
-				}
-				else {
-					fprintf(
-						stderr,
-						"expecting symbol or number as second argument; found (%u)\n",
-						args[1].count == 1 ? args[1].tokens[0].type : (TokenType)0);
-					exit(FAILURE_SYNTAX);
-				}
-			}
+			long offset = expect_off(CU, &args[1], 9, "second");
 			word |= dest << 9;
 			word |= offset;
+			break;
+		}
+		case IF_Offset9: {
+			expect_n_args(1, nArgs);
+			long offset = expect_off(CU, &args[0], 9, "first");
+			word |= offset;
+			break;
+		}
+		case IF_BaseR: {
+			expect_n_args(1, nArgs);
+			int dest = expect_reg(&args[0], "first");
+			word |= dest << 6;
 			break;
 		}
 		default:
@@ -405,6 +388,41 @@ static int expect_reg(Argument* arg, const char *name) {
 		exit(FAILURE_SYNTAX);
 	}
 	return index;
+}
+static long expect_off(CompilationUnit *CU, Argument *arg, size_t nBits, const char *name) {
+	long offset = try_imm(arg, nBits, true);
+	if (offset < 0) {
+		if (arg->count == 1 && arg->tokens[0].type == TT_Identifier) {
+			StringSlice slice = tokendata_expect_string(&arg->tokens[0].data);
+			uint16_t target;
+			if (cu_label_get_target(CU, slice.start, slice.length, &target)) {
+				offset = 1L + target - cu_cursor_get(CU);
+				if (!validate_imm(offset, nBits)) {
+					fprintf(
+						stderr,
+						"offset for label %.*s (%li) does not fit in %zu bits\n",
+						(unsigned)slice.length,
+						slice.start,
+						offset,
+						nBits);
+					exit(FAILURE_SYNTAX);
+				}
+			}
+			else {
+				cu_late_link(CU, cu_cursor_get(CU), LLT_OffsetPlusOneImm9, slice.start, slice.length);
+				offset = 0;
+			}
+		}
+		else {
+			fprintf(
+				stderr,
+				"expecting symbol or number as %s argument; found (%u)\n",
+				name,
+				arg->count == 1 ? arg->tokens[0].type : (TokenType)0);
+			exit(FAILURE_SYNTAX);
+		}
+	}
+	return offset & ~(~0ul << nBits);
 }
 static int try_reg(Argument *arg) {
 	if (arg->count == 0) {
